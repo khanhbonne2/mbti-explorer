@@ -1,1 +1,783 @@
+/* MBTI Explorer — Alex — single-file prototype */
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cognitive Functions & MBTI Explorer</title>
+<style>
+  :root{
+    --bg:#1E1F22; --surface:#2B2D31; --surface-alt:#313338; --border:#3C3F44;
+    --text:#F2F3F5; --muted:#B5BAC1; --hint:#949BA4;
+    --accent:#8B5CF6; --accent-hover:#7C3AED; --ring:#A78BFA; --track:#3B3E45;
+    --radius:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(#1E1F22,#2B2D31);color:var(--text);
+       font:16px/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{color:#C4B5FD}
+  .wrap{max-width:900px;margin:0 auto;padding:20px}
+  .nav{position:sticky;top:0;z-index:5;background:var(--surface-alt);
+       border-bottom:1px solid var(--border)}
+  .nav .inner{display:flex;gap:10px;align-items:center;justify-content:space-between;
+              max-width:900px;margin:0 auto;padding:12px 20px}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:999px;
+       background:transparent;color:var(--text);cursor:pointer}
+  .tab.active{background:var(--surface);border-color:var(--accent)}
+  .container{padding:24px 20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+        padding:16px;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+  .grid{display:grid;gap:14px}
+  @media(min-width:640px){.grid.cols-2{grid-template-columns:1fr 1fr}}
+  @media(min-width:900px){
+    .grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+    .grid.cols-4{grid-template-columns:1fr 1fr 1fr 1fr}
+  }
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;
+       border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:white}
+  .btn.primary[disabled]{opacity:.5;cursor:not-allowed}
+  .btn.primary:hover{background:var(--accent-hover)}
+  .btn.ghost:hover{background:#00000020}
+  .btn.block{width:100%;justify-content:center}
+  .choice{padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);
+          cursor:pointer; position:relative}
+  .choice:hover{border-color:var(--accent)}
+  .choice.selected{outline:2px solid var(--ring);border-color:var(--accent)}
+  .choice .readmore{position:absolute;right:10px;bottom:10px;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer}
+  .progress{height:8px;background:var(--track);border-radius:999px;overflow:hidden}
+  .progress > div{height:100%;background:var(--accent)}
+  .muted{color:var(--muted)}
+  .hint{color:var(--hint);font-size:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .stack{display:grid;gap:8px}
+  .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#00000030;border:1px solid var(--border)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+  /* pill buttons */
+  .pillBtn{
+    display:inline-block;padding:6px 10px;border:1px solid var(--accent);
+    border-radius:999px;background:#2B2D31;color:var(--text);cursor:pointer;
+    box-shadow:0 0 0 2px rgba(167,139,250,.25);font:inherit
+  }
+  .pillBtn:hover{box-shadow:0 0 0 4px rgba(167,139,250,.25)}
+  .pillWrap .pillBtn{margin:2px 6px 2px 0}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:50}
+  .overlay.show{display:flex}
+  .modal{max-width:720px;width:min(92vw,720px);max-height:85vh;overflow:auto;background:var(--surface);
+         border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.6);padding:18px}
+  .modal h3{margin:0 0 6px 0}
+  .modal .close{margin-left:auto}
+  .list{ margin:6px 0 0 0;  padding:0;  list-style:none;}
+  .list li{margin:4px 0; }
+  .list li::marker{ content:''; }
+  .demoBlock{border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:10px;background:var(--surface)}
+  .demoRow{display:flex;gap:8px;margin-top:8px}
+  .demoOption{flex:1;border:1px solid var(--border);border-radius:10px;padding:10px;cursor:pointer}
+  .demoOption:hover{border-color:var(--accent)}
+  .demoOption.selected{outline:2px solid var(--ring);border-color:var(--accent)}
+</style>
+</head>
+<body>
+  <div class="nav">
+    <div class="inner">
+      <div style="font-weight:700">Cognitive Functions & MBTI Explorer</div>
+      <div class="tabs">
+        <button class="tab" onclick="restartAndGo('#/quiz')">Quiz</button>
+        <button class="tab" onclick="go('#/learn/functions')">Cognitive functions</button>
+        <button class="tab" onclick="go('#/learn/letters')">Each letter of the MBTI</button>
+        <button class="tab" onclick="go('#/types')">The Types</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="app" class="container"></div>
+  </div>
+
+  <!-- In-page modal -->
+  <div id="overlay" class="overlay" onclick="if(event.target.id==='overlay') closeModal()">
+    <div class="modal">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 id="modalTitle"></h3>
+        <button class="btn ghost close" onclick="closeModal()">Close</button>
+      </div>
+      <div id="modalBody" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+<script>
+/* ================================= core data ============================== */
+const EX = new Set(['Ne','Se','Te','Fe']);
+const IN = new Set(['Ni','Si','Ti','Fi']);
+const PER = new Set(['Ne','Ni','Se','Si']);
+const JUD = new Set(['Te','Ti','Fe','Fi']);
+const INTU = new Set(['Ne','Ni']);
+const THINK = new Set(['Ti','Te']);
+const OPPOSITE = { Ne:'Si', Se:'Ni', Te:'Fi', Fe:'Ti', Ni:'Se', Si:'Ne', Ti:'Fe', Fi:'Te' };
+
+const TYPE_TO_STACK = {
+  ENTP:['Ne','Ti','Fe','Si'], ENFP:['Ne','Fi','Te','Si'],
+  ENTJ:['Te','Ni','Se','Fi'], ENFJ:['Fe','Ni','Se','Ti'],
+  ESTP:['Se','Ti','Fe','Ni'], ESFP:['Se','Fi','Te','Ni'],
+  ESTJ:['Te','Si','Ne','Fi'], ESFJ:['Fe','Si','Ne','Ti'],
+  INTP:['Ti','Ne','Si','Fe'], INFP:['Fi','Ne','Si','Te'],
+  INTJ:['Ni','Te','Fi','Se'], INFJ:['Ni','Fe','Ti','Se'],
+  ISTP:['Ti','Se','Ni','Fe'], ISFP:['Fi','Se','Ni','Te'],
+  ISTJ:['Si','Te','Fi','Ne'], ISFJ:['Si','Fe','Ti','Ne'],
+};
+
+const PDB_ID = { ISTJ:1, ESTJ:2, ISFJ:3, ESFJ:4, ESFP:5, ISFP:6, ESTP:7, ISTP:8, INFJ:9, ENFJ:10, INFP:11, ENFP:12, INTP:13, ENTP:14, INTJ:15, ENTJ:16 };
+
+const FUNCTIONS = {
+  Ne:{ title:'Extraverted Intuition', one:'Spots possibilities; leaps across ideas; pattern-gremlin.', signals:['Brainstorming','Metaphors','Rapid reframes','Comfort with ambiguity'], growth:'Balance with Si (precedent/routine) when execution matters.' },
+  Ni:{ title:'Introverted Intuition', one:'Synthesizes to one big insight; future-trend hunches.', signals:['Convergence','Symbolic thinking','Long-range vision'], growth:'Balance with Se to verify against real-time data.' },
+  Se:{ title:'Extraverted Sensing', one:'Immersed in the now; 4K sensory input; action-driven.', signals:['Noticing details','Quick reactions','Hands-on learning'], growth:'Balance with Ni to plan beyond the present.' },
+  Si:{ title:'Introverted Sensing', one:'Anchors to precedent; reliable routines; sensory memory.', signals:['Stability','Compare to past','Protocols'], growth:'Balance with Ne to explore new patterns.' },
+  Te:{ title:'Extraverted Thinking', one:'Organizes people/time; external results and KPIs.', signals:['Roadmaps','Timelines','Efficiency','Standards'], growth:'Balance with Fi to check inner alignment.' },
+  Ti:{ title:'Introverted Thinking', one:'Internal logic; definitions; systems tuned for precision.', signals:['Models','Edge cases','Why does this work?','Refactoring'], growth:'Balance with Fe to consider human context.' },
+  Fe:{ title:'Extraverted Feeling', one:'Reads group vibe; adapts to maintain harmony.', signals:['Social calibration','Diplomacy','Inclusive wording'], growth:'Balance with Ti to avoid overfitting to people.' },
+  Fi:{ title:'Introverted Feeling', one:'Inner compass; values; authenticity check.', signals:['Personal resonance','Boundaries','Cause-driven choices'], growth:'Balance with Te to operationalize values.' },
+};
+const EXT_FUNCTIONS = {
+  Ne:{ focus:'Possibilities and patterns in the outside world.', style:'Rapidly generates new ideas, sees “what could be,” connects unrelated things.', strengths:'Creativity, adaptability, brainstorming.', example:'Seeing multiple interpretations of a situation; spinning “what if?” scenarios.', growth:'Balance with Si (precedent/routine) when execution matters.', types:'Strong in ENxP, INxP.', compare:'Compared to Ni, Ne explores many branches quickly; Ni narrows toward one convergent vision.' },
+  Ni:{ focus:'Inner convergence toward a single big-picture insight.', style:'Synthesizes symbols and patterns into trajectories and themes.', strengths:'Foresight, pattern synthesis, patience with ambiguity.', example:'Anticipating how trends will likely unfold.', growth:'Balance with Se to ground insights in what’s happening now.', types:'Strong in INxJ, ENxJ.', compare:'Compared to Ne, Ni prefers depth and convergence; Ne prefers breadth and divergence.' },
+  Se:{ focus:'Real-time sensory data in the external world.', style:'Acts on what is present; enjoys vivid, hands-on experiences.', strengths:'Responsiveness, situational awareness, aesthetics.', example:'Reacting accurately in fast-changing contexts.', growth:'Balance with Ni for long-term implications.', types:'Strong in ESxP, ISxP.', compare:'Compared to Si, Se seeks novelty in the moment; Si seeks continuity and reliability over time.' },
+  Si:{ focus:'Stability, precedent, and memory of what has worked.', style:'References detailed past experiences; builds dependable routines.', strengths:'Consistency, accuracy, reliability.', example:'Ensuring today aligns with proven methods.', growth:'Balance with Ne to avoid stagnation.', types:'Strong in ISxJ, ESxJ.', compare:'Compared to Se, Si favors familiar patterns and precision; Se favors immediacy and stimulation.' },
+  Te:{ focus:'External organization toward measurable outcomes.', style:'Optimizes systems, clarifies roles, enforces standards.', strengths:'Execution, prioritization, accountability.', example:'Turning goals into timelines and checklists.', growth:'Balance with Fi to respect values and authenticity.', types:'Strong in ExTJ, IxTJ.', compare:'Compared to Ti, Te prioritizes external effectiveness; Ti prioritizes internal logical elegance.' },
+  Ti:{ focus:'Internal logical consistency and precise models.', style:'Defines terms, hunts inconsistencies, refactors systems.', strengths:'Analysis, rigor, clear definitions.', example:'Tuning an idea until the logic is airtight.', growth:'Balance with Fe to account for people and context.', types:'Strong in IxTP, ExTP.', compare:'Compared to Te, Ti optimizes correctness; Te optimizes outcomes.' },
+  Fe:{ focus:'External harmony and social calibration.', style:'Tracks group needs, adapts communication, builds cohesion.', strengths:'Diplomacy, empathy-in-action, inclusive framing.', example:'Mediating a conflict so everyone feels heard.', growth:'Balance with Ti to maintain standards of reasoning.', types:'Strong in ExFJ, IxFJ.', compare:'Compared to Fi, Fe adapts to collective values; Fi defends personal values.' },
+  Fi:{ focus:'Personal values and inner alignment.', style:'Checks authenticity, honors boundaries, seeks meaning.', strengths:'Integrity, empathy, conviction.', example:'Choosing paths that feel deeply right.', growth:'Balance with Te to implement values concretely.', types:'Strong in IxFP, ExFP.', compare:'Compared to Fe, Fi centers inner conscience; Fe centers group harmony.' },
+};
+
+/* single-letter blurbs for modals */
+const LETTER_BLURBS = {
+  E: {title:'E — Extraversion', body:'Outward focus on people and environment, energized by interaction.', compare:'Compared to I, more leaning toward being expressive, social, and action-oriented.'},
+  I: {title:'I — Introversion', body:'Inward focus on thoughts and reflection, energized by solitude.', compare:'Compared to E, more leaning toward being reserved, introspective, and depth-focused.'},
+  N: {title:'N — Intuition', body:'Sees patterns, concepts, and future possibilities.', compare:'Compared to S, more leaning toward big-picture, abstract, and imaginative thinking.'},
+  S: {title:'S — Sensing', body:'Trusts facts, details, and present reality.', compare:'Compared to N, more leaning toward concrete, practical, and experience-based thinking.'},
+  T: {title:'T — Thinking', body:'Decides with logic and objectivity.', compare:'Compared to F, more leaning toward fairness, efficiency, and impersonal analysis.'},
+  F: {title:'F — Feeling', body:'Decides with values and empathy.', compare:'Compared to T, more leaning toward harmony, compassion, and people-centered judgment.'},
+  P: {title:'P — Perceiving', body:'Prefers flexibility, spontaneity, and open options.', compare:'Compared to J, more leaning toward adaptability, exploration, and going with the flow.'},
+  J: {title:'J — Judging', body:'Prefers structure, decisiveness, and settled plans.', compare:'Compared to P, more leaning toward organization, closure, and predictability.'},
+};
+
+/* letter pair teaching + demos */
+const LETTERS = {
+  EI: {
+    teach:'Energy orientation: E sends energy outward (talk→think). I holds energy inward (think→talk). Both valid; this is about your comfort zone.',
+    demos:[
+      {prompt:'Are you outwardly or inwardly focused?', E:['Could be described as talkative, outgoing'], I:['Could be described as reserved, private']},
+      {prompt:'Pace preference?', E:['Like to be in a fast-paced environment'], I:['Prefer a slower pace with time for contemplation']},
+      {prompt:'How ideas form?', E:['Tend to work out ideas with others, think out loud'], I:['Tend to think things through inside your head']},
+      {prompt:'Spotlight?', E:['Enjoy being the center of attention'], I:['Would rather observe than be the center of attention']},
+      {prompt: 'Recharge after a long day?', E: ['Seek people and activity to recharge'], I: ['Seek quiet solo time to decompress'] },
+
+    ],
+    source:'https://pkanthonywong.medium.com/understanding-mbti-a-comprehensive-guide-to-personality-types-14cf81315981'
+  },
+  NS: {
+    teach:'Perceiving preference: N = abstract patterns/possibilities; S = concrete facts/details. Both are useful; this is about what draws your attention first.',
+    demos:[
+      {prompt:'Information focus?', S:['Focus on the reality of how things are'], N:['Imagine the possibilities of how things could be']},
+      {prompt:'Attention goes to…', S:['Pay attention to concrete facts and details'], N:['Notice the big picture, see how everything connects']},
+      {prompt:'Idea preference', S:['Prefer ideas that have practical applications'], N:['Enjoy ideas and concepts for their own sake']},
+      {prompt:'Communication style', S:['Like to describe things in a specific, literal way'], N:['Like to describe things in a figurative, poetic way']},
+    ],
+    source:'https://pkanthonywong.medium.com/understanding-mbti-a-comprehensive-guide-to-personality-types-14cf81315981'
+  },
+  TF: {
+    teach:'Judging preference: T = logic/criteria; F = values/impact on people.',
+    demos:[
+      {prompt:'Decision style', T:['Make decisions in an impersonal way, using logical reasoning'], F:['Base your decisions on personal values and how your actions affect others']},
+      {prompt:'What you value', T:['Value justice, fairness'], F:['Value harmony, forgiveness']},
+      {prompt:'Cognitive joy', T:['Enjoy finding the flaws in an argument'], F:['Like to please others and point out the best in people']},
+      {prompt:'Vibe description', T:['Could be described as reasonable, level-headed'], F:['Could be described as warm, empathetic']},
+    ],
+    source:'https://pkanthonywong.medium.com/understanding-mbti-a-comprehensive-guide-to-personality-types-14cf81315981'
+  },
+  JP: {
+    teach:'Lifestyle: J = prefer structure/closure; P = prefer openness/adaptability.',
+    demos:[
+      {prompt:'Closure vs openness', J:['Prefer to have matters settled'], P:['Prefer to leave your options open']},
+      {prompt:'Rules & deadlines', J:['Think rules and deadlines should be respected'], P:['See rules and deadlines as flexible']},
+      {prompt:'Instructions', J:['Prefer to have detailed, step-by-step instructions'], P:['Like to improvise and make things up as you go along']},
+      {prompt:'Trip planning', J:['Make plans, want to know what you’re getting into'], P:['Are spontaneous, enjoy surprises and new situations']},
+    ],
+    source:'https://pkanthonywong.medium.com/understanding-mbti-a-comprehensive-guide-to-personality-types-14cf81315981'
+  }
+};
+
+/* ================================ state & helpers ================================ */
+const initState = () => ({
+  step:'welcome',
+  EI:null, dominant:null, auxiliary:null, tertiary:null, inferior:null,
+  resultType:null,
+  sel:{ ei:null, dom:null, aux:null },
+  demo:{EI:[], NS:[], TF:[], JP:[]}
+});
+let state = initState();
+
+function isExtraverted(fn){ return EX.has(fn) }
+function isPerceiving(fn){ return PER.has(fn) }
+function auxOptionsForDominant(dom){
+  if (EX.has(dom) && PER.has(dom)) return ['Ti','Fi'];
+  if (EX.has(dom) && JUD.has(dom)) return ['Ni','Si'];
+  if (IN.has(dom) && PER.has(dom)) return ['Te','Fe'];
+  return ['Ne','Se'];
+}
+function computeLettersFromStack(dom, aux){
+  const E = isExtraverted(dom) ? 'E' : 'I';
+  const pFn = isPerceiving(dom) ? dom : aux;
+  const jFn = JUD.has(dom) ? dom : aux;
+  const NS = INTU.has(pFn) ? 'N' : 'S';
+  const TF = THINK.has(jFn) ? 'T' : 'F';
+  const JP = (E==='E') ? ((dom==='Te'||dom==='Fe')?'J':'P')
+                       : ((aux==='Te'||aux==='Fe')?'J':'P');
+  return {E,NS,TF,JP};
+}
+function stackFromState(){ return [state.dominant,state.auxiliary,state.tertiary,state.inferior].filter(Boolean) }
+function typeFromState(){ const L = computeLettersFromStack(state.dominant, state.auxiliary); return `${L.E}${L.NS}${L.TF}${L.JP}` }
+
+function setTabActive(){
+  const r = location.hash.split('?')[0] || '#/quiz';
+  document.querySelectorAll('.tab').forEach(btn=>btn.classList.remove('active'));
+  const map = {'#/quiz':0,'#/learn/functions':1,'#/learn/letters':2,'#/types':3,'#/result':-1};
+  const i = map[r] ?? -1;
+  if(i>=0) document.querySelectorAll('.tab')[i].classList.add('active');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('show') }
+function openModal(title, html){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = html;
+  document.getElementById('overlay').classList.add('show');
+}
+function go(h){ location.hash = h }
+function restartAndGo(h){
+  state = initState();
+  const overlay = document.getElementById('overlay');
+  if(overlay && overlay.classList.contains('show')) closeModal();
+  if(location.hash === h){ render(); } else { go(h); }
+}
+function parseQuery(){
+  const h = location.hash.split('?')[1] || '';
+  const params = {};
+  h.split('&').forEach(kv=>{ const [k,v] = kv.split('='); if(k) params[decodeURIComponent(k)] = decodeURIComponent(v || '') });
+  return params;
+}
+
+/* ========================= router ============================= */
+window.addEventListener('hashchange', render);
+window.addEventListener('load', render);
+
+function render(){
+  setTabActive();
+  const route = (location.hash.split('?')[0] || '#/quiz');
+  const app = document.getElementById('app');
+  if(route==='#/learn/functions'){ return renderLearnFunctions(app) }
+  if(route==='#/learn/letters'){ return renderLearnLetters(app) }
+  if(route==='#/types'){ return renderTypes(app) }
+  if(route==='#/result'){ return renderResultDeepLink(app) }
+  return renderQuiz(app);
+}
+
+/* ============================ quiz ========================== */
+/* NEW ORDER: EI (with demos) → DOM → AUX → SPLASH → EI_ACK (no demo) → EX_NS → EX_TF → EX_JP */
+const stepsOrder = ['ei','dom','aux','splash','ei_ack','ex_ns','ex_tf','ex_jp'];
+
+function renderQuiz(app){
+  const content = [];
+  let idx = stepsOrder.indexOf(state.step);
+  const pct = idx>=0 ? Math.round(((idx+1)/stepsOrder.length)*100) : 0;
+  content.push(`
+    <div class="card" style="position:sticky;top:12px;margin-bottom:14px">
+      <div class="row" style="justify-content:space-between">
+        <div class="hint">Guided Quiz</div>
+        <div class="hint">${idx>=0 ? `Step ${idx+1} / ${stepsOrder.length}` : 'Get started'}</div>
+      </div>
+      <div class="progress" style="margin-top:8px"><div style="width:${pct}%"></div></div>
+    </div>
+  `);
+
+  if(state.step==='welcome'){
+    content.push(`
+      <div class="card">
+        <h2>so… you wanna know your type?</h2>
+        <p class="muted">This is my hobby, not destiny. Jung started the chaos; I’m just curating the rabbit hole. Proceed with curiosity, caffeine, and kindness.</p>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" onclick="state.step='ei'; render()">Start the quiz</button>
+        </div>
+      </div>
+    `);
+  }
+  else if(state.step==='ei'){
+    const pack = LETTERS.EI;
+    const tallyMsg = demoLeanMessage('EI', state.sel.ei || 'E', state.demo.EI);
+    content.push(`
+      <div class="card">
+        <h3>Step 1: E vs I — Energy orientation</h3>
+        <p class="hint">${pack.teach}</p>
+        
+
+        <!-- Inline demos to help the choice -->
+        ${pack.demos.map((d,idx)=> renderDemoBlock('EI', d, idx, true)).join('')}
+
+        <div class="card" style="margin-top:10px">
+          <b>What your demo picks suggest:</b>
+          <p class="muted" id="tally_EI">${tallyMsg}</p>
+          <div class="hint">Source: <a href="${pack.source}" target="_blank" rel="noreferrer">Understanding MBTI — A Comprehensive Guide (Medium)</a></div>
+        </div>
+        
+        <p class="muted">Once again, this is only a suggestion. It is obvious that most people would be E in some situations and I in others. But think about your comfort.</p>
+        
+        <div class="grid cols-2" style="margin-top:12px">
+          <div class="choice ${state.sel.ei==='E'?'selected':''}" onclick="state.sel.ei='E'; render()">
+            <b>Extraversion (E)</b><br><span class="muted">energized by people/ideas/noise; walking Wi-Fi router.</span>
+          </div>
+          <div class="choice ${state.sel.ei==='I'?'selected':''}" onclick="state.sel.ei='I'; render()">
+            <b>Introversion (I)</b><br><span class="muted">energized by solitude/deep dives; cave dragon with a reading lamp.</span>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:12px;justify-content:space-between">
+          <button class="btn ghost" onclick="state.step='welcome'; render()">Back</button>
+          <button class="btn primary" ${!state.sel.ei?'disabled':''} onclick="commitEI()">Next</button>
+        </div>
+      </div>
+    `);
+  }
+  else if(state.step==='dom'){
+    const list = state.EI==='E' ? ['Ne','Se','Te','Fe'] : ['Ni','Si','Ti','Fi'];
+    content.push(`
+      <div class="card">
+        <h3>Step 2: Pick your <b>Dominant</b> function</h3>
+        <p class="hint">Because you chose ${state.EI}, your dominant must match that attitude. Your <i>inferior</i> will be the opposite pair.</p>
+        <div class="grid cols-2" style="margin-top:12px">
+          ${list.map(fn => renderDomCard(fn)).join('')}
+        </div>
+        <div class="row" style="margin-top:12px;justify-content:space-between">
+          <button class="btn ghost" onclick="state.step='ei'; render()">Back</button>
+          <button class="btn primary" ${!state.sel.dom?'disabled':''} onclick="commitDom()">Next</button>
+        </div>
+      </div>
+    `);
+  }
+  else if(state.step==='aux'){
+    const opts = auxOptionsForDominant(state.dominant);
+    content.push(`
+      <div class="card">
+        <h3>Step 3: Pick your <b>Auxiliary</b></h3>
+        <p class="hint">Aux balances the dominant: opposite attitude + opposite kind. Choosing it also sets your <i>tertiary</i>.</p>
+        <div class="grid cols-2" style="margin-top:12px">
+          ${opts.map(fn => renderAuxCard(fn)).join('')}
+        </div>
+        <div class="row" style="margin-top:12px;justify-content:space-between">
+          <button class="btn ghost" onclick="state.step='dom'; render()">Back</button>
+          <button class="btn primary" ${!state.sel.aux?'disabled':''} onclick="commitAux()">Next</button>
+        </div>
+      </div>
+    `);
+  }
+  else if(state.step==='splash'){
+    const t = typeFromState();
+    state.resultType = t;
+    const stk = stackFromState();
+    content.push(`
+      <div class="card">
+        <h2>Well… based on your cognitive stack, I <i>think</i> you might be <span class="badge mono">${t}</span>.</h2>
+        <p class="muted">Let’s see what that actually means, step by step.</p>
+        ${renderStackRecapBlock(stk)}
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" onclick="state.step='ei_ack'; render()">Check each letter in ${t} →</button>
+        </div>
+      </div>
+    `);
+  }
+  else if(state.step==='ei_ack'){
+    return renderEIAck(app);
+  }
+  else if(state.step.startsWith('ex_')){
+    return renderExplainPage(state.step.slice(3));
+  }
+
+  app.innerHTML = content.join('\n');
+}
+
+function commitEI(){ state.EI = state.sel.ei; state.step='dom'; render() }
+function commitDom(){ state.dominant = state.sel.dom; state.inferior = OPPOSITE[state.dominant]; state.step='aux'; render() }
+function commitAux(){ state.auxiliary = state.sel.aux; state.tertiary = OPPOSITE[state.auxiliary]; state.step='splash'; render() }
+
+/* EI acknowledgement page (no demos) */
+function renderEIAck(app){
+  const L = computeLettersFromStack(state.dominant, state.auxiliary);
+  const letter = L.E; // 'E' or 'I'
+  const blurb = LETTER_BLURBS[letter];
+  app.innerHTML = `
+    <div class="card">
+      <div class="hint">First letter confirmed</div>
+      <h3>You picked <span class="badge mono">${letter}</span> — what that means</h3>
+      <p>${blurb.body}</p>
+      <p class="muted">→ ${blurb.compare}</p>
+      <div class="row" style="margin-top:14px;justify-content:space-between">
+        <button class="btn ghost" onclick="state.step='splash'; render()">Back</button>
+        <button class="btn primary" onclick="state.step='ex_ns'; render()">Next →</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderDomCard(fn){
+  const f = FUNCTIONS[fn]; const inf = OPPOSITE[fn]; const infOne = FUNCTIONS[inf]?.one || '';
+  return `
+    <div class="choice ${state.sel.dom===fn?'selected':''}" onclick="state.sel.dom='${fn}'; render()">
+      <div class="row" style="justify-content:space-between">
+        <b>${fn}</b> <span class="hint">${EX.has(fn)?'Extraverted':'Introverted'} · ${PER.has(fn)?'Perceiving':'Judging'}</span>
+      </div>
+      <div class="muted" style="margin-top:6px">${f?.one || ''}</div>
+      <div class="hint" style="margin-top:8px"><b>Inferior:</b> ${inf} — ${infOne}. <i>Often means you’re <b>less comfortable</b> with this.</i></div>
+      <div class="readmore" onclick="event.stopPropagation(); showFnModal('${fn}')">Read more</div>
+    </div>`;
+}
+function renderAuxCard(fn){
+  const f = FUNCTIONS[fn]; const tert = OPPOSITE[fn]; const tertOne = FUNCTIONS[tert]?.one || '';
+  return `
+    <div class="choice ${state.sel.aux===fn?'selected':''}" onclick="state.sel.aux='${fn}'; render()">
+      <div class="row" style="justify-content:space-between">
+        <b>${fn}</b> <span class="hint">${IN.has(fn)?'Introverted':'Extraverted'} · ${PER.has(fn)?'Perceiving':'Judging'}</span>
+      </div>
+      <div class="muted" style="margin-top:6px">${f?.one || ''}</div>
+      <div class="hint" style="margin-top:8px"><b>Tertiary:</b> ${tert} — ${tertOne}. <i>Shows up playfully and grows with adulthood.</i></div>
+      <div class="readmore" onclick="event.stopPropagation(); showFnModal('${fn}')">Read more</div>
+    </div>`;
+}
+
+function renderStackRecapBlock(stk){
+  const labels = ['Dominant','Auxiliary','Tertiary','Inferior'];
+  const explanations = [
+    'This is the function you use the most — your default, instinctual way of engaging the world.',
+    'Balances the dominant with the opposite attitude/kind; your main helper.',
+    'Often develops more with age — pops up playfully or situationally.',
+    'Your stress response / blind spot — a growth edge over time.'
+  ];
+  return `
+    <div class="stack" style="margin-top:14px">
+      <div><b>Your stack (dom→aux→tert→inf)</b></div>
+      <div class="pillWrap" style="margin-top:6px">
+        ${stk.map(s=>`<button class="pillBtn mono" onclick="showFnModal('${s}')" title="Read more">${s}</button>`).join('')}
+      </div>
+      <div class="card" style="margin-top:10px">
+        ${stk.map((s,i)=>`
+          <div style="margin:6px 0">
+            <b>${labels[i]}:</b> <button class="pillBtn mono" onclick="showFnModal('${s}')">${s}</button><br/>
+            <span class="hint">${explanations[i]}</span><br/>
+            <span class="hint"><b>${s}</b> — ${FUNCTIONS[s]?.one || ''}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+/* ==================== explain pages for NS / TF / JP (with demos) ======================= */
+function renderExplainPage(key){
+  const app = document.getElementById('app');
+  const letterKey = key.toUpperCase(); // 'NS' | 'TF' | 'JP'
+  const L = computeLettersFromStack(state.dominant, state.auxiliary);
+  const official = letterKey==='NS'? L.NS : letterKey==='TF'? L.TF : L.JP;
+  const pack = LETTERS[letterKey];
+  const prev = { ns:'ei_ack', tf:'ex_ns', jp:'ex_tf' }[key];
+  const next = { ns:'ex_tf', tf:'ex_jp', jp:'result' }[key];
+
+  const tallyMsg = demoLeanMessage(letterKey, official, state.demo[letterKey]);
+
+  app.innerHTML = `
+    <div class="card">
+      <div class="hint">Explain: ${letterKey.replace('NS','N vs S').replace('TF','T vs F').replace('JP','J vs P')}</div>
+      <h3>You are <span class="badge mono">${official}</span> — here’s why</h3>
+      <p class="muted">${pack.teach}</p>
+      ${pack.demos.map((d,idx)=> renderDemoBlock(letterKey, d, idx, true)).join('')}
+      <div class="card" style="margin-top:10px">
+        <b>What your demo picks suggest:</b>
+        <p class="muted" id="tally_${letterKey}">${tallyMsg}</p>
+        <div class="hint">Source: <a href="${pack.source}" target="_blank" rel="noreferrer">Understanding MBTI — A Comprehensive Guide (Medium)</a></div>
+      </div>
+      <div class="row" style="margin-top:14px;justify-content:space-between">
+        <button class="btn ghost" onclick="state.step='${prev}'; render()">Back</button>
+        <button class="btn primary" onclick="${key==='jp'
+          ? `goFinalAfterExplain()`
+          : `state.step='${next}'; render()`}">${key==='jp'?'See final result →':'Next →'}</button>
+      </div>
+    </div>`;
+}
+function goFinalAfterExplain(){
+  const t = typeFromState();
+  state.resultType = t;
+  const stk = stackFromState().join('-');
+  go(`#/result?type=${encodeURIComponent(t)}&stack=${encodeURIComponent(stk)}`);
+}
+function renderDemoBlock(letterKey, d, idx, record){
+  const current = state.demo[letterKey][idx] || null;
+  const sides = Object.keys(d).filter(k=>k!=='prompt');
+  const left = sides[0], right = sides[1];
+  return `
+    <div class="demoBlock">
+      <div class="muted"><b>Demo ${idx+1}:</b> ${d.prompt}</div>
+      <div class="demoRow">
+        <div class="demoOption ${current===left?'selected':''}" onclick="pickDemo('${letterKey}', ${idx}, '${left}', ${record})">
+          <b>${left}</b>
+          <ul class="list">${d[left].map(x=>`<li>${x}</li>`).join('')}</ul>
+        </div>
+        <div class="demoOption ${current===right?'selected':''}" onclick="pickDemo('${letterKey}', ${idx}, '${right}', ${record})">
+          <b>${right}</b>
+          <ul class="list">${d[right].map(x=>`<li>${x}</li>`).join('')}</ul>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:6px">These demos don’t change your result — they just show preference lean. Preference ≠ ability.</div>
+    </div>`;
+}
+function pickDemo(letterKey, idx, side, record){
+  if(!record) return;
+  state.demo[letterKey][idx] = side;
+  const L = computeLettersFromStack(state.dominant, state.auxiliary);
+  const official = letterKey==='EI'? (state.sel.ei || 'E') : letterKey==='NS'? L.NS : letterKey==='TF'? L.TF : L.JP;
+  const msg = demoLeanMessage(letterKey, official, state.demo[letterKey]);
+  const target = document.getElementById(`tally_${letterKey}`);
+  if(target) target.textContent = msg;
+  if(letterKey==='EI'){ renderQuiz(document.getElementById('app')); }
+  else { renderExplainPage(letterKey.toLowerCase()); }
+}
+function demoLeanMessage(letterKey, official, picksArr){
+  const arr = (picksArr||[]).filter(Boolean);
+  if(arr.length===0) return 'No picks yet.';
+  const tally = arr.reduce((m,x)=>((m[x]=(m[x]||0)+1),m),{});
+  const entries = Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0 || (entries[1] && entries[0][1]===entries[1][1])) return 'You don’t lean on either in this case.';
+  const lean = entries[0][0];
+  if(lean===official) return `You lean more on ${lean}. Remember everyone can use both; this reflects preference, not exclusivity.`;
+  return `Hmm, you lean more on ${lean} — but remember, both sides are usable; this reflects comfort zone, not ability.`;
+}
+
+/* =========================== learn: functions ============================= */
+function renderLearnFunctions(app){
+  app.innerHTML = `
+    <div class="card">
+      <h2>Cognitive functions</h2>
+      <p class="muted">Quick, precise, stereotype-free descriptions. Click a function to read more and compare to its counterpart.</p>
+      <div class="grid cols-2" style="margin-top:12px">
+        ${Object.entries(FUNCTIONS).map(([k,v])=>`
+          <div class="card" onclick="showFnModal('${k}')" style="cursor:pointer">
+            <div class="row" style="justify-content:space-between">
+              <b>${k} — ${v.title}</b>
+              <span class="badge">${INTU.has(k)?'N':'S'} / ${THINK.has(k)?'T':'F'} · ${EX.has(k)?'Ex':'In'}</span>
+            </div>
+            <div class="muted" style="margin-top:6px">${v.one}</div>
+            <div class="hint" style="margin-top:8px"><b>Signals:</b> ${v.signals.join(' • ')}</div>
+            <div class="hint" style="margin-top:8px"><b>Growth:</b> ${v.growth}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+}
+function showFnModal(fn){
+  const f = FUNCTIONS[fn];
+  const ext = EXT_FUNCTIONS && EXT_FUNCTIONS[fn];
+  const counterpart = (fn==='Ne')?'Ni':(fn==='Ni')?'Ne'
+                   :(fn==='Se')?'Si':(fn==='Si')?'Se'
+                   :(fn==='Te')?'Ti':(fn==='Ti')?'Te'
+                   :(fn==='Fe')?'Fi':'Fe';
+  if(ext){
+    openModal(`${fn} — ${f.title}`, `
+      <p><b>Focus:</b> ${ext.focus}</p>
+      <p><b>Style:</b> ${ext.style}</p>
+      <p><b>Strengths:</b> ${ext.strengths}</p>
+      <p><b>Example:</b> ${ext.example}</p>
+      <p><b>Growth:</b> ${ext.growth}</p>
+      <p><b>Types (often strong):</b> ${ext.types}</p>
+      <hr style="border:none;border-top:1px solid var(--border);margin:10px 0">
+      <p><b>Compared to ${counterpart}:</b> ${ext.compare}</p>
+    `);
+  } else {
+    openModal(`${fn} — ${f?.title || 'Cognitive Function'}`, `
+      <p>${f?.one || ''}</p>
+      ${f?.signals ? `<p class="hint"><b>Signals:</b> ${f.signals.join(' • ')}</p>` : ''}
+      ${f?.growth ? `<p class="hint"><b>Growth:</b> ${f.growth}</p>` : ''}
+    `);
+  }
+}
+
+/* ============================= learn: letters tab ============================= */
+let learnPicks = {};
+function renderLearnLetters(app){
+  app.innerHTML = `
+    <div class="card">
+      <h2>Each letter of the MBTI</h2>
+      <p class="muted">Explore both the dichotomy pairs (with demos) and quick per-letter definitions. Demos here don’t affect your quiz.</p>
+
+      <!-- Pair cards with demos -->
+      <div class="grid cols-2" style="margin-top:12px">
+        ${['EI','NS','TF','JP'].map(k=>`
+          <div class="card">
+            <b>${k.replace('EI','E vs I').replace('NS','N vs S').replace('TF','T vs F').replace('JP','J vs P')}</b>
+            <p class="muted" style="margin-top:6px">${LETTERS[k].teach}</p>
+            <div class="row" style="margin-top:10px">
+              <button class="btn primary" onclick="openLetterLearnModal('${k}')">Open details</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Quick per-letter pills -->
+      <div class="card" style="margin-top:14px">
+        <b>Quick letter definitions</b>
+        <div class="pillWrap" style="margin-top:8px">
+          ${['E','I','N','S','T','F','P','J'].map(ch=>`
+            <button class="pillBtn mono" onclick="showSingleLetterModal('${ch}')">${ch}</button>
+          `).join('')}
+        </div>
+      </div>
+    </div>`;
+}
+function openLetterLearnModal(k){
+  if(!learnPicks[k]) learnPicks[k]=[];
+  const pack = LETTERS[k];
+  const body = `
+    <p class="muted">${pack.teach}</p>
+    ${pack.demos.map((d,idx)=> renderLearnDemoBlock(k, d, idx)).join('')}
+    <div class="card" style="margin-top:10px">
+      <b>What your demo picks suggest:</b>
+      <p class="muted" id="learn_tally_${k}">${learnTallyMessage(k)}</p>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" onclick="closeModal(); restartAndGo('#/quiz')">Take the quiz to see your MBTI via cognitive functions</button>
+      </div>
+      <div class="hint" style="margin-top:8px">Source: <a href="${pack.source}" target="_blank" rel="noreferrer">Understanding MBTI — A Comprehensive Guide (Medium)</a></div>
+    </div>`;
+  openModal(k.replace('EI','E vs I').replace('NS','N vs S').replace('TF','T vs F').replace('JP','J vs P')+' — Learn', body);
+}
+function renderLearnDemoBlock(k, d, idx){
+  const current = learnPicks[k][idx] || null;
+  const sides = Object.keys(d).filter(x=>x!=='prompt');
+  const left=sides[0], right=sides[1];
+  return `
+    <div class="demoBlock">
+      <div class="muted"><b>Demo ${idx+1}:</b> ${d.prompt}</div>
+      <div class="demoRow">
+        <div class="demoOption ${current===left?'selected':''}" onclick="setLearnPick('${k}', ${idx}, '${left}')">
+          <b>${left}</b>
+          <ul class="list">${d[left].map(x=>`<li>${x}</li>`).join('')}</ul>
+        </div>
+        <div class="demoOption ${current===right?'selected':''}" onclick="setLearnPick('${k}', ${idx}, '${right}')">
+          <b>${right}</b>
+          <ul class="list">${d[right].map(x=>`<li>${x}</li>`).join('')}</ul>
+        </div>
+      </div>
+    </div>`;
+}
+function setLearnPick(k, idx, side){ learnPicks[k][idx]=side; openLetterLearnModal(k); }
+function learnTallyMessage(k){
+  const arr=(learnPicks[k]||[]).filter(Boolean);
+  if(arr.length===0) return 'No picks yet.';
+  const tally=arr.reduce((m,x)=>((m[x]=(m[x]||0)+1),m),{});
+  const entries=Object.entries(tally).sort((a,b)=>b[1]-a[1]);
+  if(entries.length===0 || (entries[1] && entries[0][1]===entries[1][1])) return 'You don’t lean on either in this case.';
+  return `You lean more on ${entries[0][0]}. Remember everyone has both; this reflects preference, not exclusivity.`;
+}
+
+/* ============================= types (4 per row) ==================================== */
+function renderTypes(app){
+  const types = Object.keys(TYPE_TO_STACK);
+  app.innerHTML = `
+    <div class="card">
+      <h2>The Types</h2>
+      <div class="grid cols-4" style="margin-top:12px">
+        ${types.map(t=>`
+          <a class="choice" href="#/result?type=${t}">
+            <b>${t}</b><br><span class="hint">${TYPE_TO_STACK[t].join(' → ')}</span>
+          </a>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+/* ================================= result (deep linkable) ================================= */
+function renderResultDeepLink(app){
+  const q = parseQuery();
+  const t = (q.type?.toUpperCase?.() || 'ENTP');
+  const stk = (q.stack && q.stack.split('-')) || TYPE_TO_STACK[t] || TYPE_TO_STACK['ENTP'];
+  const share = `${location.origin}${location.pathname}#/result?type=${encodeURIComponent(t)}&stack=${encodeURIComponent(stk.join('-'))}`;
+  const p16 = `https://www.16personalities.com/${t.toLowerCase()}-personality`;
+  const pdb = `https://www.personality-database.com/profile?personality=${PDB_ID[t]||14}`;
+
+  app.innerHTML = `
+    <div class="card">
+      <h2><span class="badge mono">${t}</span></h2>
+      <p class="muted">${typeBlurbLong(t)}</p>
+
+      <div class="card" style="margin-top:10px">
+        <b>Your stack (dom→aux→tert→inf)</b>
+        <div class="pillWrap" style="margin-top:6px">
+          ${stk.map(s=>`<button class="pillBtn mono" onclick="showFnModal('${s}')" title="Read more">${s}</button>`).join('')}
+        </div>
+        <div class="hint" style="margin-top:8px">
+          <b>Dominant</b>, <b>Auxiliary</b>, <b>Tertiary</b>, <b>Inferior</b> — tap any function above to read details.
+        </div>
+      </div>
+
+      <div class="pillWrap" style="margin-top:12px">
+        ${t.split('').map(ch=>`<button class="pillBtn mono" onclick="showSingleLetterModal('${ch}')">${ch}</button>`).join('')}
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <a class="btn primary" href="${p16}" target="_blank" rel="noreferrer">Read on 16personalities</a>
+        <a class="btn ghost" href="${pdb}" target="_blank" rel="noreferrer">See on Personality DB</a>
+        <button class="btn ghost" onclick="copyLink('${share}')">Copy link</button>
+        <button class="btn ghost" onclick="restartAndGo('#/quiz')">Take the quiz</button>
+      </div>
+    </div>`;
+}
+function typeBlurbLong(t){
+  const m = {
+    ENTP:'Fast-moving idea explorer who tests possibilities out loud and refines them with sharp internal logic. Thrives on novelty, reframing problems, and sparring with concepts; prefers flexibility and open options over rigid plans.',
+    ENFP:'Inspiration-driven connector who champions possibilities aligned with personal values. Energizes groups with enthusiasm and imagination; seeks meaning and authenticity while staying open and adaptable.',
+    ENTJ:'Outcome-oriented organizer with strategic foresight. Sets direction, aligns people, and executes to measurable goals; prefers structure and decisive action informed by long-range thinking.',
+    ENFJ:'People-centered organizer with long-range insight. Orchestrates groups toward shared goals while tracking human dynamics; blends empathy with a clear sense of direction.',
+    ESTP:'Hands-on problem-solver who thrives in the moment. Reads real-time situations accurately, acts decisively, and iterates on direct feedback; prefers practical challenges and visible results.',
+    ESFP:'Present-focused enthusiast who brings experiences to life. Tunes into what’s happening now, elevates the vibe, and adapts quickly; values personal authenticity and shared enjoyment.',
+    ESTJ:'Pragmatic executive who enforces standards and gets things done. Turns goals into plans, clarifies roles, and drives for efficient, reliable outcomes.',
+    ESFJ:'Supportive coordinator who builds harmony and reliability. Tracks group needs, keeps traditions running smoothly, and fosters a dependable, welcoming environment.',
+    INTP:'Analytical theorist who builds precise models. Enjoys dissecting systems, redefining terms, and stress-testing ideas for internal consistency; prefers autonomy and open-ended exploration.',
+    INFP:'Values-driven idealist who seeks authentic meaning. Filters choices through a strong inner compass and explores possibilities that resonate personally and ethically.',
+    INTJ:'Strategic synthesizer with a vision for what’s next. Converges complex inputs into a coherent trajectory, then organizes execution to realize the vision.',
+    INFJ:'Insightful counselor who tracks patterns in people. Anticipates interpersonal dynamics and guides others with empathy and foresight.',
+    ISTP:'Tactical analyst who reacts with calm precision. Stays cool under pressure, reads the environment, and applies logical fixes efficiently.',
+    ISFP:'Quiet creator guided by inner values and aesthetics. Tunes into personal meaning and translates it into tangible, sensory expression.',
+    ISTJ:'Reliable implementer who trusts precedent and detail. Ensures continuity, accuracy, and duty of care through time-tested methods.',
+    ISFJ:'Steady caretaker who protects what works. Attentive to people’s needs and practical details; preserves stability with quiet diligence.'
+  };
+  return m[t] || 'Type description coming soon.';
+}
+
+/* single-letter modal */
+function showSingleLetterModal(letter){
+  const L = LETTER_BLURBS[letter];
+  if(!L) return;
+  openModal(L.title, `<p>${L.body}</p><p class="muted">→ ${L.compare}</p>`);
+}
+
+/* ========================================= utils ======================================== */
+function copyLink(text){
+  navigator.clipboard.writeText(text)
+    .then(()=>openModal('Link copied','<p class="muted">URL copied to clipboard — share away!</p>'));
+}
+
+/* ========================================== boot ====================================== */
+render();
+</script>
+</body>
+</html>
+
+
 
